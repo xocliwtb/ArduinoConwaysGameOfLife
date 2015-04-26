@@ -1,4 +1,5 @@
 #include "U8glib.h"
+#include <Bounce.h>
 
 // Number of 8-bit bytes horizontal display.
 #define HH 16
@@ -31,6 +32,60 @@ int generation = 0;
 
 // Recalculate Globals
 uint8_t Nrow, Srow, Wcol, Ecol, NWCell, NCell, NECell, WCell, XCell, ECell, SWCell, SCell, SECell, newXCell;
+
+// Button will be used to reset, press and hold
+#define BUTTON 9
+// Instantiate a Bounce object with a 5 millisecond debounce time
+Bounce bouncer = Bounce( BUTTON,5 ); 
+
+void initializeAcorn() {
+  initialize(0);  // clear array
+  // Acorn
+  full_bitmap[32*HH+8]=32;
+  full_bitmap[33*HH+8]=8;
+  full_bitmap[34*HH+8]=103;  
+}
+
+void initializePentomino() {
+  initialize(0);  // clear array
+  // R-Pentomino
+  full_bitmap[32*HH+8]=3;
+  full_bitmap[33*HH+8]=6;
+  full_bitmap[34*HH+8]=2;  
+}
+
+void initializeGosperGun() {
+  initialize(0);  // clear array
+  // Gosper Gun.
+  // Top left is row 30, column 4
+  full_bitmap[35*HH+4]=B01100000;
+  full_bitmap[36*HH+4]=B01100000;
+
+  full_bitmap[33*HH+5]=B00000110;  
+  full_bitmap[34*HH+5]=B00001000;  
+  full_bitmap[35*HH+5]=B00010000;  
+  full_bitmap[36*HH+5]=B00010001;  
+  full_bitmap[37*HH+5]=B00010000;  
+  full_bitmap[38*HH+5]=B00001000;  
+  full_bitmap[39*HH+5]=B00000110;  
+
+  full_bitmap[32*HH+6]=B00000001;  
+  full_bitmap[33*HH+6]=B00000110;  
+  full_bitmap[34*HH+6]=B10000110;  
+  full_bitmap[35*HH+6]=B01000110;  
+  full_bitmap[36*HH+6]=B01100001;  
+  full_bitmap[37*HH+6]=B01000000;  
+  full_bitmap[38*HH+6]=B10000000;  
+
+  full_bitmap[31*HH+7]=B01000000;  
+  full_bitmap[32*HH+7]=B01000000;  
+  full_bitmap[36*HH+7]=B01000000;  
+  full_bitmap[37*HH+7]=B01000000;  
+
+  full_bitmap[33*HH+8]=B00011000;  
+  full_bitmap[34*HH+8]=B00011000;  
+
+}
 
 // Seed with some objects
 void initialize2(void) {
@@ -85,18 +140,18 @@ void initialize2(void) {
   
   // Lightweight Spaceship
   // ...
-
+*/
   // Acorn
   full_bitmap[32*HH+8]=32;
   full_bitmap[33*HH+8]=8;
   full_bitmap[34*HH+8]=103;  
-*/
 
+/*
   // R-Pentomino
   full_bitmap[32*HH+8]=3;
   full_bitmap[33*HH+8]=6;
   full_bitmap[34*HH+8]=2;  
-  
+*/  
 }
 
 // Generate random content to fill the display
@@ -131,6 +186,21 @@ void drawGeneration(void) {
 }
 #endif
 
+// Used to draw resetOption when user presses the button
+void drawResetOption(int optNum) {
+  // graphic commands to redraw the complete screen should be placed here  
+  u8g.setFont(u8g_font_unifont);
+  //u8g.setFont(u8g_font_osb21);
+  char charBuf[12];
+//  sprintf(charBuf,"%d",optNum);
+  sprintf(charBuf,"%s",optNum==0?"Random"
+                      :optNum==1?"Acorn"
+                      :optNum==2?"Pentomino"
+                      :optNum==3?"Gosper Gun"
+                      :"???");
+  u8g.drawStr( 0, 64, charBuf);
+}
+
 // Recalculate next iteration of Conway's game of life
 void recalculate() {
   
@@ -145,12 +215,12 @@ void recalculate() {
   // save "row" for use in next row calculations
   
   // Initialize row #64 to row#0 values
-//  Serial.println(F("Copy Row0 to RowRR"));
-//  for(int x=0;x<HH;x++) {
-//    full_bitmap[HH*RR+x] = full_bitmap[x];
-//  }
+  Serial.println(F("Copy Row0 to RowRR"));
+  for(int x=0;x<HH;x++) {
+    full_bitmap[HH*RR+x] = full_bitmap[x];
+  }
 
-  memcpy(&full_bitmap+HH*RR,&full_bitmap,HH);
+//memcpy(&full_bitmap+HH*RR,&full_bitmap,HH);
 
   // Re-calculate each row
   for(int r=0;r<RR;r++) {
@@ -247,6 +317,7 @@ void recalculate() {
 
     }
 
+/*
     // Save the top row that we no longer need to use.  Skip for the very first row since we haven't pushed new_top to new_row yet
     if (r>0) {
       memcpy(&full_bitmap[HH*(r-1)],&new_top,HH);
@@ -254,19 +325,32 @@ void recalculate() {
 
     // bump new row into the top slot
     memcpy(&new_top,&new_row,HH);
+*/
+    for(int x=0;x<HH;x++) {
+      // Save the top row that we no longer need to use.  Skip for the very first row since we haven't pushed new_top to new_row yet
+      if(r>0) {
+        full_bitmap[HH*(r-1)+x] = new_top[x];
+      }
+      // bump new row into the top slot
+      new_top[x] = new_row[x];
+    }
 
   }
 
   // write the last row
-  memcpy(&full_bitmap+(RR-1)*HH,&new_row,HH);
+  for(int x=0;x<HH;x++) {
+    full_bitmap[(RR-1)*HH+x] = new_row[x];
+  }
+//  memcpy(&full_bitmap+(RR-1)*HH,&new_row,HH);
   // row RR is ignored, it will be over-written next time we refresh
 
 }
 
 void setup(void) {
+  pinMode(BUTTON, OUTPUT);
   Serial.begin(115200);
-//  initialize(255); // random
   initialize2();
+
   // flip screen, if required
   // u8g.setRot180();
   
@@ -286,10 +370,52 @@ void setup(void) {
   else if ( u8g.getMode() == U8G_MODE_HICOLOR ) {
     u8g.setHiColorByRGB(255,255,255);
   }
+    Serial.println(F("Initialized"));
 }
 
 void loop(void) {
-//  time1 = millis();
+//  Serial.println("loop");
+
+  bouncer.update();
+  int value = bouncer.read();
+  if(value==HIGH) {
+
+    // reset loop
+    int resetOption = 0;
+    do {
+      //Serial.println(resetOption);
+      // show option, then wait 1 second.  If button is released we will reset with option 1.  Repeat for each additional reset option
+
+      // picture loop
+      u8g.firstPage();
+      do {
+        drawResetOption(resetOption);
+      } while( u8g.nextPage() );
+
+      delay(1000);
+      bouncer.update();
+      value = bouncer.read();
+      if(value==LOW)
+        break;
+      resetOption++;
+      resetOption %= 5;
+    } while(true);
+    
+//  Serial.println("Resetting");
+    if(resetOption==0) {
+      initialize(255); // random
+    } else if(resetOption==1) {
+      initializeAcorn();
+    } else if(resetOption==2) {
+      initializePentomino();
+    } else if(resetOption==3) {
+      initializeGosperGun();
+    } else {
+      initialize2();
+    }
+  //Serial.println(F("Done"));
+
+  }
 
   // picture loop
   u8g.firstPage();
@@ -301,20 +427,8 @@ void loop(void) {
 #endif
   } while( u8g.nextPage() );
 
-//  time2 = millis();
-
-//  Serial.print("Draw: ");
-//  Serial.print(time2-time1);
-
-  // rebuild the picture after some delay
+  // calculate next generation
   recalculate();
-
-//  time1 = millis();
-
-//  Serial.print(", Recalculate: ");
-//  Serial.print(time1-time2);
-//  Serial.print(": ");
-//  Serial.println(time1);
 
 }
 
